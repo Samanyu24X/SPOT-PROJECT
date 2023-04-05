@@ -14,13 +14,22 @@ from bosdyn.client.world_object import (WorldObjectClient, make_add_world_object
                                         make_change_world_object_req, make_delete_world_object_req)
 from bosdyn.util import now_timestamp
 
-def find_package():
+
+def find_package(world_object_client):
+    """ Detects nearby package fiducial and navigates to it."""
+
+    request_fiducials = [world_object_pb2.WORLD_OBJECT_APRILTAG]
+    current_fiducials = world_object_client.list_world_objects(object_type=request_fiducials).world_objects
+    print(current_fiducials)
     return
 
 def pickup_package():
     return
 
-def find_destination():
+def walk_to_destination():
+    return
+
+def find_dropoff():
     return
 
 def deliver_package():
@@ -40,4 +49,10 @@ def main(argv):
 
     # Create the world object client.
     world_object_client = robot.ensure_client(WorldObjectClient.default_service_name)
+    find_package(world_object_client)
+
     return
+
+if __name__ == '__main__':
+    if not main(sys.argv[1:]):
+        sys.exit(1)
