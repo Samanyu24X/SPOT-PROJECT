@@ -29,6 +29,9 @@ g_image_click = None
 g_image_display = None
 
 
+
+
+
 def verify_estop(robot):
     """Verify the robot is not estopped"""
 
@@ -39,7 +42,23 @@ def verify_estop(robot):
         robot.logger.error(error_message)
         raise Exception(error_message)
 
+def getCoordinates(worldObj):
+    image_info=worldObj.image_properties
 
+    vertices=[]
+
+    for vertex in image_info.coordinates:
+        v=[]
+        v.append(vertex['x'])
+        v.append(vertex['y'])
+
+    vertex1=vertices[-1]
+    vertex2=vertices[-2]
+
+    x=int(abs(vertex1[0]-vertex2[0]/2))
+    y=int(vertex2[1]-5)
+
+    return x,y
 def arm_object_grasp(config):
     """A simple example of using the Boston Dynamics API to command Spot's arm."""
 
