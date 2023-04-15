@@ -66,6 +66,10 @@ class PackageDelivery(object):
         self._max_y_vel = 0.5
         self._max_ang_vel = 1.0
 
+        # Epsilon distance between robot and desired go-to point.
+        self._x_eps = .05
+        self._y_eps = .05
+        self._angle_eps = .075
 
 
     def get_package_fiducial(self):
@@ -207,6 +211,10 @@ class PackageDelivery(object):
         traj = trajectory_pb2.SE3Trajectory(points=[point])
         return spot_command_pb2.BodyControlParams(base_offset_rt_footprint=traj)
     
+    @property
+    def robot_state(self):
+        """Get latest robot state proto."""
+        return self._robot_state_client.get_robot_state()
     
     def final_state(self):
         """Check if the current robot state is within range of the fiducial position."""
@@ -279,8 +287,6 @@ def main(argv):
     lease_client = robot.ensure_client(LeaseClient.default_service_name)
     with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True):
         package_delivery_robot.start()
-
-
     return
 
 if __name__ == '__main__':
