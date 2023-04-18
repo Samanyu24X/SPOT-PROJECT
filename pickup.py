@@ -227,6 +227,17 @@ def add_grasp_constraint(config, grasp, robot_state_client):
             # The axis in the vision frame is the negative z-axis
             axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=-1)
 
+        # lines that Neil deleted
+        # Add the vector constraint to our proto.
+        constraint = grasp.grasp_params.allowable_orientation.add()
+        constraint.vector_alignment_with_tolerance.axis_on_gripper_ewrt_gripper.CopyFrom(
+            axis_on_gripper_ewrt_gripper)
+        constraint.vector_alignment_with_tolerance.axis_to_align_with_ewrt_frame.CopyFrom(
+            axis_to_align_with_ewrt_vo)
+
+        # We'll take anything within about 10 degrees for top-down or horizontal grasps.
+        constraint.vector_alignment_with_tolerance.threshold_radians = 0.17
+
 
 
 def main(argv):
