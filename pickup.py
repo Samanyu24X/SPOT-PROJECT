@@ -255,13 +255,14 @@ def main(argv):
     num = 0
     if options.force_top_down_grasp:
         num += 1
+    '''
     if options.force_horizontal_grasp:
         num += 1
     if options.force_45_angle_grasp:
         num += 1
     if options.force_squeeze_grasp:
         num += 1
-
+    '''
     if num > 1:
         print("Error: cannot force other grasp besides top down.  Choose only one.")
         sys.exit(1)
