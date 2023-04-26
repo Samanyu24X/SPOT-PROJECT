@@ -241,7 +241,7 @@ class PackageDelivery(object):
                 return True
         return False
 
-    def pickup_package(self):
+    def pickup_package(self, package_fiducial):
 
         # to avoid having to go back to the command line, hardcode the options string
         argstring = ""
@@ -272,8 +272,22 @@ class PackageDelivery(object):
             print("Error: cannot force other grasp besides top down.  Choose only one.")
             sys.exit(1)
 
+        manual = True
+
         try:
-            arm_object_grasp(options) # returns True once the operation was completed
+            if manual:
+                arm_object_grasp(options) # returns True once the operation was completed
+            else:
+                source_name = package_fiducial.image_properties.camera_source
+                print("Camera source for the package fiducial was", source_name)
+
+                # code taken from fiducial follow image detection
+                img_req = build_image_request(source_name, quality_percent=100,
+                                          image_format=image_pb2.Image.FORMAT_RAW)
+                image_response = self._image_client.get_image([img_req])
+
+                # call Francisco's version using harcoded options, fiducial, self (robot), and image
+                arm_object_grasp_with_coordinates(options, package_fiducial, self, image_response)
             return True
         except Exception as exc:  # pylint: disable=broad-except
             logger = bosdyn.client.util.get_logger()
@@ -306,7 +320,7 @@ class PackageDelivery(object):
             self.power_off()
         print("Moved to package fiducial")
 
-        if self.pickup_package() is True:
+        if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
 
 
