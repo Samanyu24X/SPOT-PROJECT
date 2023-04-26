@@ -58,7 +58,7 @@ def getCoordinates(worldObj):
     vertex2=vertices[-2]
 
     x=int(abs(vertex1[0]-vertex2[0]/2))
-    y=int(vertex2[1]-5)
+    y=int(vertex2[1]+5)
 
     return x,y
 def arm_object_grasp(config):
@@ -249,20 +249,38 @@ def main(argv):
     parser.add_argument('-t', '--force-top-down-grasp',
                         help='Force the robot to use a top-down grasp (vector_alignment demo)',
                         action='store_true')
+    parser.add_argument('-f', '--force-horizontal-grasp',
+                        help='Force the robot to use a horizontal grasp (vector_alignment demo)',
+                        action='store_true')
+    parser.add_argument(
+        '-r', '--force-45-angle-grasp',
+        help='Force the robot to use a 45 degree angled down grasp (rotation_with_tolerance demo)',
+        action='store_true')
+    parser.add_argument('-s', '--force-squeeze-grasp',
+                        help='Force the robot to use a squeeze grasp', action='store_true')
+    
+    
+        
+    
+    
+
     options = parser.parse_args(argv)
 
+    #when no grasp argument provided, directly store a field into options 
+    if not (options.force_top_down_grasp or options.force_horizontal_grasp  
+                or  options.force_45_angle_grasp or options.force_45_angle_grasp or options.force_squeeze_grasp):
+        options.force_horizontal_grasp=True
     #Keep to test if SPOT will continue to utilize other grasps
     num = 0
     if options.force_top_down_grasp:
         num += 1
-    '''
     if options.force_horizontal_grasp:
         num += 1
     if options.force_45_angle_grasp:
         num += 1
     if options.force_squeeze_grasp:
         num += 1
-    '''
+
     if num > 1:
         print("Error: cannot force other grasp besides top down.  Choose only one.")
         sys.exit(1)
