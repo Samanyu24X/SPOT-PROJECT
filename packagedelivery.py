@@ -1,4 +1,3 @@
-
 from __future__ import print_function
 import logging
 import math
@@ -55,6 +54,9 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.robot import Robot
 
 BODY_LENGTH = 1.1
+
+g_image_click = None
+g_image_display = None
 
 
 class PackageDelivery(object):
@@ -244,9 +246,11 @@ class PackageDelivery(object):
     def pickup_package(self, package_fiducial):
 
         # to avoid having to go back to the command line, hardcode the options string
-        argstring = ""
+        # this argstring effectively replaces "argv" used in the pickup.py file
+        argstring = ['192.168.80.3', '-t']
 
-        # adjusted code from pickup.py main()
+
+        # adjusted code from pickup.py main() that configures the options
         parser = argparse.ArgumentParser()
         bosdyn.client.util.add_base_arguments(parser)
         parser.add_argument('-i', '--image-source', help='Get image from source',
@@ -272,19 +276,37 @@ class PackageDelivery(object):
             print("Error: cannot force other grasp besides top down.  Choose only one.")
             sys.exit(1)
 
-        manual = True
+        # boolean that chooses if we use the click pickup or automated pickup
+        # True = click pickup (Neil), false = automated (Francisco)
+        manual = False
 
         try:
             if manual:
-                arm_object_grasp(options) # returns True once the operation was completed
+                arm_object_grasp(options, self._robot) # returns True once the operation was completed
             else:
-                source_name = package_fiducial.image_properties.camera_source
-                print("Camera source for the package fiducial was", source_name)
 
+                # i'm trying to take an image, all the lines until the end of this else block are to try to get an image
+
+                source_name = package_fiducial.image_properties.camera_source
+                #print("Camera source for the package fiducial was", source_name)
+
+
+                #code used to find an image
+
+                self._source_names = [
+                src.name for src in self._image_client.list_image_sources() if
+                (src.image_type == image_pb2.ImageSource.IMAGE_TYPE_VISUAL and "depth" not in src.name)
+                ]
+                print(self._source_names)
+                source_name = self._source_names[0]
+                print(source_name)
+                
                 # code taken from fiducial follow image detection
                 img_req = build_image_request(source_name, quality_percent=100,
                                           image_format=image_pb2.Image.FORMAT_RAW)
                 image_response = self._image_client.get_image([img_req])
+
+                # assume there is an image, which is stored in image_response
 
                 # call Francisco's version using harcoded options, fiducial, self (robot), and image
                 arm_object_grasp_with_coordinates(options, package_fiducial, self, image_response)
@@ -369,16 +391,16 @@ def getCoordinates(worldObj):
 
     return x,y
 
-def arm_object_grasp(config):
+def arm_object_grasp(config, robot):
     """A simple example of using the Boston Dynamics API to command Spot's arm."""
 
     # See hello_spot.py for an explanation of these lines.
     bosdyn.client.util.setup_logging(config.verbose)
 
     sdk = bosdyn.client.create_standard_sdk('ArmObjectGraspClient')
-    robot = sdk.create_robot(config.hostname)
-    bosdyn.client.util.authenticate(robot)
-    robot.time_sync.wait_for_sync()
+    #robot = sdk.create_robot(config.hostname)
+    #bosdyn.client.util.authenticate(robot)
+    #robot.time_sync.wait_for_sync()
 
     assert robot.has_arm(), "Robot requires an arm to run this example."
 
