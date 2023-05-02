@@ -247,52 +247,61 @@ class PackageDelivery(object):
 
         # to avoid having to go back to the command line, hardcode the options string
         # this argstring effectively replaces "argv" used in the pickup.py file
-        argstring = ['192.168.80.3', '-t']
-
-
+        argstring = ['192.168.80.3','-t']
         # adjusted code from pickup.py main() that configures the options
         parser = argparse.ArgumentParser()
         bosdyn.client.util.add_base_arguments(parser)
+        #switched it to default to frontleft since that is what the fiducial uses and we are basing coord off of
         parser.add_argument('-i', '--image-source', help='Get image from source',
-                        default='frontleft_fisheye_image')
+                        default='frontright_fisheye_image')
         parser.add_argument('-t', '--force-top-down-grasp',
                         help='Force the robot to use a top-down grasp (vector_alignment demo)',
                         action='store_true')
         options = parser.parse_args(argstring)
-
+        
+        '''
+        # i commented it out since we are only using one grasp, no need to have this still check for erors
         #Keep to test if SPOT will continue to utilize other grasps
         num = 0
         if options.force_top_down_grasp:
             num += 1
-        '''
         if options.force_horizontal_grasp:
             num += 1
         if options.force_45_angle_grasp:
             num += 1
         if options.force_squeeze_grasp:
             num += 1
-        '''
         if num > 1:
             print("Error: cannot force other grasp besides top down.  Choose only one.")
             sys.exit(1)
-
+        '''
         # boolean that chooses if we use the click pickup or automated pickup
         # True = click pickup (Neil), false = automated (Francisco)
         manual = False
+
+
+        '''
+        potnetial method we can use: bosdyn.client.image.pixel_to_camera_space(image_proto, pixel_x, pixel_y, depth=1.0)
+            Using the camera intrinsics, determine the (x,y,z) point in the camera frame for the (u,v) pixel coordinates.
+        
+            Note that the front left and front right cameras on Spot are rotated 90 degrees counterclockwise from upright, 
+            and the right camera on Spot is rotated 180 degrees from upright. As a result, the corresponding images aren’t 
+            initially saved with the same orientation as is seen on the tablet. By adding the command line argument --auto-rotate, 
+            this example code automatically rotates all images from Spot to be saved in the orientation they are seen on the tablet screen
+        '''
 
         try:
             if manual:
                 arm_object_grasp(options, self._robot) # returns True once the operation was completed
             else:
-
+                image_client=self._image_client
+                image_responses = image_client.get_image_from_sources([options.image_source])
+                arm_object_grasp_with_coordinates(options, package_fiducial, self, image_responses)
+                '''
                 # i'm trying to take an image, all the lines until the end of this else block are to try to get an image
-
                 source_name = package_fiducial.image_properties.camera_source
                 #print("Camera source for the package fiducial was", source_name)
-
-
                 #code used to find an image
-
                 self._source_names = [
                 src.name for src in self._image_client.list_image_sources() if
                 (src.image_type == image_pb2.ImageSource.IMAGE_TYPE_VISUAL and "depth" not in src.name)
@@ -300,7 +309,6 @@ class PackageDelivery(object):
                 print(self._source_names)
                 source_name = self._source_names[0]
                 print(source_name)
-                
                 # code taken from fiducial follow image detection
                 img_req = build_image_request(source_name, quality_percent=100,
                                           image_format=image_pb2.Image.FORMAT_RAW)
@@ -310,6 +318,8 @@ class PackageDelivery(object):
 
                 # call Francisco's version using harcoded options, fiducial, self (robot), and image
                 arm_object_grasp_with_coordinates(options, package_fiducial, self, image_response)
+                '''
+
             return True
         except Exception as exc:  # pylint: disable=broad-except
             logger = bosdyn.client.util.get_logger()
