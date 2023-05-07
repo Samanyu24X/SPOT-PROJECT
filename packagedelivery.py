@@ -104,6 +104,26 @@ class PackageDelivery(object):
                     return x
             time.sleep(1)
         return None
+    
+    def get_destination_fiducial(self):
+        """Detects nearby package fiducial from world object service and returns it."""
+
+        #Change to proper destination fiducial
+
+        # search for nearby fiducials for specified waiting time
+        waiting_time = 10
+        print("Looking for package fiducial...")
+
+        for x in range (0, waiting_time):
+            request_fiducials = [world_object_pb2.WORLD_OBJECT_APRILTAG]
+            current_fiducials = self._world_object_client.list_world_objects(object_type=request_fiducials).world_objects
+
+            # loop through all detected fiducials and return the specified bag fiducial, if found
+            for x in current_fiducials:
+                if x.name == "world_obj_apriltag_544":
+                    return x
+            time.sleep(1)
+        return None
         
     
     def go_to_package(self, package):
@@ -277,7 +297,7 @@ class PackageDelivery(object):
         '''
         # boolean that chooses if we use the click pickup or automated pickup
         # True = click pickup (Neil), false = automated (Francisco)
-        manual = False
+        manual = True
 
 
         '''
@@ -333,7 +353,20 @@ class PackageDelivery(object):
     def find_dropoff(self):
         return
 
-    def deliver_package(self):
+    def deliver_package(self, config, robot):
+        # kept SPOT holding the package until it is at destination
+
+        robot.logger.info('Finished grasp.')
+        time.sleep(4.0)
+
+        robot.logger.info('Sitting down and turning off.')
+
+        # Power the robot off. By specifying "cut_immediately=False", a safe power off command
+        # is issued to the robot. This will attempt to sit the robot before powering off.
+        robot.power_off(cut_immediately=False, timeout_sec=20)
+        assert not robot.is_powered_on(), "Robot power off failed."
+        robot.logger.info("Robot safely powered off.")
+
         return
     
     def start(self):
@@ -344,6 +377,7 @@ class PackageDelivery(object):
         time.sleep(1)
 
         package_fiducial = self.get_package_fiducial()
+        destination_fiducial = self.get_destination_fiducial() #needs to change for proper fiducial
         if package_fiducial is None:
             print("Could not identify the package fiducial.")
             self.power_off()
@@ -354,7 +388,12 @@ class PackageDelivery(object):
 
         if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
-
+            if self.find_dropoff(destination_fiducial) is True:
+                self.go_to_tag()
+                self.deliver_package()
+                self.walk_to_destination()
+            else: 
+                self.deliver_package() #drop package is no destination is found
 
         return
     
@@ -516,16 +555,18 @@ def arm_object_grasp(config, robot):
 
             time.sleep(0.25)
 
-        robot.logger.info('Finished grasp.')
-        time.sleep(4.0)
+        # code out grasp shut down in order keep object held until destination
 
-        robot.logger.info('Sitting down and turning off.')
+        # robot.logger.info('Finished grasp.')
+        # time.sleep(4.0)
 
-        # Power the robot off. By specifying "cut_immediately=False", a safe power off command
-        # is issued to the robot. This will attempt to sit the robot before powering off.
-        robot.power_off(cut_immediately=False, timeout_sec=20)
-        assert not robot.is_powered_on(), "Robot power off failed."
-        robot.logger.info("Robot safely powered off.")
+        # robot.logger.info('Sitting down and turning off.')
+
+        # # Power the robot off. By specifying "cut_immediately=False", a safe power off command
+        # # is issued to the robot. This will attempt to sit the robot before powering off.
+        # robot.power_off(cut_immediately=False, timeout_sec=20)
+        # assert not robot.is_powered_on(), "Robot power off failed."
+        # robot.logger.info("Robot safely powered off.")
 
 def cv_mouse_callback(event, x, y, flags, param):
     global g_image_click, g_image_display
