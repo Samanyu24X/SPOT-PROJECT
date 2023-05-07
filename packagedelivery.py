@@ -104,6 +104,24 @@ class PackageDelivery(object):
                     return x
             time.sleep(1)
         return None
+    
+    def get_delivery_fiducial(self):
+        """Detects nearby package fiducial from world object service and returns it."""
+
+        # search for nearby fiducials for specified waiting time
+        waiting_time = 10
+        print("Looking for package fiducial...")
+
+        for x in range (0, waiting_time):
+            request_fiducials = [world_object_pb2.WORLD_OBJECT_APRILTAG]
+            current_fiducials = self._world_object_client.list_world_objects(object_type=request_fiducials).world_objects
+
+            # loop through all detected fiducials and return the specified delivery fiducial, if found
+            for x in current_fiducials:
+                if x.name == "world_obj_apriltag_545":
+                    return x
+            time.sleep(1)
+        return None
         
     
     def go_to_package(self, package):
@@ -112,6 +130,19 @@ class PackageDelivery(object):
         vision_tform_fiducial = get_a_tform_b(
             package.transforms_snapshot, VISION_FRAME_NAME,
             package.apriltag_properties.frame_name_fiducial).to_proto()
+        if vision_tform_fiducial is not None:
+            fiducial_rt_world = vision_tform_fiducial.position
+            print("Calling go_to_tag()...")
+            self.go_to_tag(fiducial_rt_world)
+            return 0
+        return 1
+    
+    def go_to_delivery(self, delivery):
+        """Takes in a package fiducial and calls the go_to_tag() method passing in the position of the fiducial"""
+        fiducial_rt_world = None
+        vision_tform_fiducial = get_a_tform_b(
+            delivery.transforms_snapshot, VISION_FRAME_NAME,
+            delivery.apriltag_properties.frame_name_fiducial).to_proto()
         if vision_tform_fiducial is not None:
             fiducial_rt_world = vision_tform_fiducial.position
             print("Calling go_to_tag()...")
@@ -355,6 +386,15 @@ class PackageDelivery(object):
 
         if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
+
+        delivery_fiducial = self.get_delivery_fiducial()
+        if delivery_fiducial is None:
+            print("Could not identify the delivery fiducial.")
+            self.power_off()
+        if self.go_to_delivery(delivery_fiducial) == 1:
+            print("Could not get the position of the delivery fiducial.")
+            self.power_off()
+        print("Moved to delivery fiducial")
 
 
         return
