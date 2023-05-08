@@ -370,11 +370,13 @@ class PackageDelivery(object):
     
     def start(self):
 
+        # power on and stand
         print("Powering on...")
         self.power_on()
         blocking_stand(self._robot_command_client)
         time.sleep(1)
 
+        # go to package
         package_fiducial = self.get_package_fiducial()
         if package_fiducial is None:
             print("Could not identify the package fiducial.")
@@ -384,9 +386,11 @@ class PackageDelivery(object):
             self.power_off()
         print("Moved to package fiducial")
 
+        # pickup package
         if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
 
+        # go to delivery
         delivery_fiducial = self.get_delivery_fiducial()
         if delivery_fiducial is None:
             print("Could not identify the delivery fiducial.")
@@ -395,7 +399,6 @@ class PackageDelivery(object):
             print("Could not get the position of the delivery fiducial.")
             self.power_off()
         print("Moved to delivery fiducial")
-
 
         return
     
@@ -561,13 +564,13 @@ def arm_object_grasp(config, robot):
         robot.logger.info('Finished grasp.')
         time.sleep(4.0)
 
-        robot.logger.info('Sitting down and turning off.')
+        #robot.logger.info('Sitting down and turning off.')
 
         # Power the robot off. By specifying "cut_immediately=False", a safe power off command
         # is issued to the robot. This will attempt to sit the robot before powering off.
-        robot.power_off(cut_immediately=False, timeout_sec=20)
-        assert not robot.is_powered_on(), "Robot power off failed."
-        robot.logger.info("Robot safely powered off.")
+        #robot.power_off(cut_immediately=False, timeout_sec=20)
+        #assert not robot.is_powered_on(), "Robot power off failed."
+        #robot.logger.info("Robot safely powered off.")
 
 def cv_mouse_callback(event, x, y, flags, param):
     global g_image_click, g_image_display
