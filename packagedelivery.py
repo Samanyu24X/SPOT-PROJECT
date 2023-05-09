@@ -386,6 +386,9 @@ class PackageDelivery(object):
             self.power_off()
         print("Moved to package fiducial")
 
+        # get package fiducial again
+        package_fiducial = self.get_package_fiducial()
+
         # pickup package
         if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
@@ -399,6 +402,9 @@ class PackageDelivery(object):
             print("Could not get the position of the delivery fiducial.")
             self.power_off()
         print("Moved to delivery fiducial")
+
+        # get delivery fiducial again
+        delivery_fiducial = self.get_delivery_fiducial()
 
         return
     
