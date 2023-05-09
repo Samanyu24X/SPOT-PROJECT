@@ -24,6 +24,8 @@ from bosdyn.client.lease import LeaseClient
 from bosdyn.client.math_helpers import Quat, SE3Pose
 from bosdyn.client.power import PowerClient
 from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient, blocking_stand
+from bosdyn.client.robot_command import (RobotCommandBuilder, RobotCommandClient,
+                                         block_until_arm_arrives, blocking_stand)
 from bosdyn.client.robot_id import RobotIdClient, version_tuple
 from bosdyn.client.robot_state import RobotStateClient
 
@@ -110,7 +112,7 @@ class PackageDelivery(object):
 
         # search for nearby fiducials for specified waiting time
         waiting_time = 10
-        print("Looking for package fiducial...")
+        print("Looking for delivery fiducial...")
 
         for x in range (0, waiting_time):
             request_fiducials = [world_object_pb2.WORLD_OBJECT_APRILTAG]
@@ -175,6 +177,7 @@ class PackageDelivery(object):
         self._robot_command_client.robot_command(lease=None, command=tag_cmd,
                                                      end_time_secs=time.time() + end_time)
             # #Feedback to check and wait until the robot is in the desired position or timeout
+        print("Move command was issued")
         start_time = time.time()
         current_time = time.time()
         while (not self.final_state() and current_time - start_time < end_time):
@@ -308,7 +311,7 @@ class PackageDelivery(object):
         '''
         # boolean that chooses if we use the click pickup or automated pickup
         # True = click pickup (Neil), false = automated (Francisco)
-        manual = False
+        manual = True
 
 
         '''
@@ -362,6 +365,17 @@ class PackageDelivery(object):
     def walk_to_destination(self):
         return
 
+    def stow_package(self):
+        stow = RobotCommandBuilder.arm_stow_command()
+
+        # Issue the command via the RobotCommandClient
+        command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
+        print("issuing stow command")
+        stow_command_id = command_client.robot_command(stow)
+
+        self._robot.logger.info("Stow command issued.")
+        block_until_arm_arrives(command_client, stow_command_id, 3.0)
+    
     def find_dropoff(self):
         return
 
@@ -386,12 +400,16 @@ class PackageDelivery(object):
             self.power_off()
         print("Moved to package fiducial")
 
-        # get package fiducial again
+        # get package fiducial again now that it's right in front of SPOT
         package_fiducial = self.get_package_fiducial()
 
         # pickup package
         if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
+            self.stow_package()
+            #time.sleep(4.0)
+
+
 
         # go to delivery
         delivery_fiducial = self.get_delivery_fiducial()
@@ -475,7 +493,7 @@ def arm_object_grasp(config, robot):
 
     manipulation_api_client = robot.ensure_client(ManipulationApiClient.default_service_name)
 
-    with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True):
+    with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=False):
         # Now, we are ready to power on the robot. This call will block until the power
         # is on. Commands would fail if this did not happen. We can also check that the robot is
         # powered at any point.
@@ -630,7 +648,7 @@ def add_grasp_constraint(config, grasp, robot_state_client):
 def arm_object_grasp_with_coordinates(config, worldObj, bot:Robot, imageResponses):
     """A simple example of using the Boston Dynamics API to command Spot's arm."""
     #bosdyn.client.util.setup_logging(config.verbose)
-    
+    print(imageResponses)
     x_coor,y_coor= getCoordinates(worldObj=worldObj)
     robot = bot
     #bosdyn.client.util.authenticate(robot)
