@@ -285,9 +285,11 @@ class PackageDelivery(object):
         # adjusted code from pickup.py main() that configures the options
         parser = argparse.ArgumentParser()
         bosdyn.client.util.add_base_arguments(parser)
+        img_src=str(package_fiducial.image_properties.camera_source)+"_image"
+        print(img_src)
         #switched it to default to frontleft since that is what the fiducial uses and we are basing coord off of
         parser.add_argument('-i', '--image-source', help='Get image from source',
-                        default='frontright_fisheye_image')
+                        default=img_src)
         parser.add_argument('-t', '--force-top-down-grasp',
                         help='Force the robot to use a top-down grasp (vector_alignment demo)',
                         action='store_true')
@@ -311,7 +313,7 @@ class PackageDelivery(object):
         '''
         # boolean that chooses if we use the click pickup or automated pickup
         # True = click pickup (Neil), false = automated (Francisco)
-        manual = True
+        manual = False
 
 
         '''
@@ -326,35 +328,14 @@ class PackageDelivery(object):
 
         try:
             if manual:
-                arm_object_grasp(options, self._robot) # returns True once the operation was completed
+
+                arm_object_grasp(options, self._robot, package_fiducial) # returns True once the operation was completed
             else:
                 print(package_fiducial)
                 image_client=self._image_client
                 image_responses = image_client.get_image_from_sources([options.image_source])
+                print(image_responses[0])
                 arm_object_grasp_with_coordinates(options, package_fiducial,  self._robot, image_responses)
-                '''
-                # i'm trying to take an image, all the lines until the end of this else block are to try to get an image
-                source_name = package_fiducial.image_properties.camera_source
-                #print("Camera source for the package fiducial was", source_name)
-                #code used to find an image
-                self._source_names = [
-                src.name for src in self._image_client.list_image_sources() if
-                (src.image_type == image_pb2.ImageSource.IMAGE_TYPE_VISUAL and "depth" not in src.name)
-                ]
-                print(self._source_names)
-                source_name = self._source_names[0]
-                print(source_name)
-                # code taken from fiducial follow image detection
-                img_req = build_image_request(source_name, quality_percent=100,
-                                          image_format=image_pb2.Image.FORMAT_RAW)
-                image_response = self._image_client.get_image([img_req])
-
-                # assume there is an image, which is stored in image_response
-
-                # call Francisco's version using harcoded options, fiducial, self (robot), and image
-                arm_object_grasp_with_coordinates(options, package_fiducial, self, image_response)
-                '''
-
             return True
         except Exception as exc:  # pylint: disable=broad-except
             logger = bosdyn.client.util.get_logger()
@@ -404,6 +385,9 @@ class PackageDelivery(object):
         package_fiducial = self.get_package_fiducial()
 
         # pickup package
+        # get package fiducial again now that it's right in front of SPOT
+        package_fiducial = self.get_package_fiducial()
+        print(package_fiducial)
         if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
             self.stow_package()
@@ -452,26 +436,37 @@ def verify_estop(robot):
         raise Exception(error_message)
     
 def getCoordinates(worldObj):
-    image_info=worldObj.image_properties
+    
 
-    vertices=[]
+    image_info = worldObj.image_properties
+
+    vertices = []
 
     for vertex in image_info.coordinates.vertexes:
-        v=[]
+        v = []
         v.append(vertex.x)
         v.append(vertex.y)
         vertices.append(v)
 
-    vertex1=vertices[-1]
-    vertex2=vertices[-2]
+    vertex1 = vertices[-1]
+    vertex2 = vertices[-2]
 
-    x=int(abs(vertex1[0]-vertex2[0]/2))
-    y=int(vertex2[1]-5)
+    vertex3=vertices[0]
+    vertex4=vertices[1]
 
+
+    smaller=min(vertex1[0], vertex3[0])
+
+    x = int(abs(vertex1[0] - vertex3[0]))
+    y = int(vertex2[1] - 5)
     return x,y
 
-def arm_object_grasp(config, robot):
+def arm_object_grasp(config, robot,fiducial):
     """A simple example of using the Boston Dynamics API to command Spot's arm."""
+    x_coor,y_coor= getCoordinates(worldObj=fiducial)
+    print("coordiantes detected by the fiducial (x,y)",x_coor, y_coor)
+    print(fiducial.image_properties.coordinates)
+
 
     # See hello_spot.py for an explanation of these lines.
     bosdyn.client.util.setup_logging(config.verbose)
@@ -525,6 +520,7 @@ def arm_object_grasp(config, robot):
             dtype = np.uint16
         else:
             dtype = np.uint8
+        #this manipulation might give me something i dont entirely want 
         img = np.fromstring(image.shot.image.data, dtype=dtype)
         if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
             img = img.reshape(image.shot.image.rows, image.shot.image.cols)
@@ -551,6 +547,7 @@ def arm_object_grasp(config, robot):
                           str(g_image_click[1]) + ')')
 
         pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
+        print("the vector that gets produced by the click: ",pick_vec)
 
         # Build the proto
         grasp = manipulation_api_pb2.PickObjectInImage(
@@ -649,7 +646,7 @@ def arm_object_grasp_with_coordinates(config, worldObj, bot:Robot, imageResponse
     """A simple example of using the Boston Dynamics API to command Spot's arm."""
     #bosdyn.client.util.setup_logging(config.verbose)
     print(imageResponses)
-    x_coor,y_coor= getCoordinates(worldObj=worldObj)
+    y_coor, x_coor= getCoordinates(worldObj=worldObj)
     robot = bot
     #bosdyn.client.util.authenticate(robot)
     robot.time_sync.wait_for_sync()
@@ -658,59 +655,24 @@ def arm_object_grasp_with_coordinates(config, worldObj, bot:Robot, imageResponse
 
     verify_estop(robot)
 
-    lease_client = robot.ensure_client(bosdyn.client.lease.LeaseClient.default_service_name)
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
 
     
     manipulation_api_client = robot.ensure_client(ManipulationApiClient.default_service_name)
-    image_client = robot.ensure_client(ImageClient.default_service_name)
     #we would need the image client and the image response to be initated prior to this part of the code 
     image_responses = imageResponses
-
-
-    #with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True):
     assert robot.is_powered_on(), "Robot power on failed."
     command_client = robot.ensure_client(RobotCommandClient.default_service_name)
     blocking_stand(command_client, timeout_sec=10)
-    #robot.logger.info("Robot standing.")
-
-    # Take a picture with a camera
-    robot.logger.info('Getting an image from: ' + config.image_source)
-    #image_responses = image_client.get_image_from_sources([config.image_source])
-
     if len(image_responses) != 1:
         print('Got invalid number of images: ' + str(len(image_responses)))
         print(image_responses)
         assert False
 
     image = image_responses[0]
-    #******* COMMENTED OUT CODE USED TO CONVERT IMAGE RESPONSE TO PRESENTABLE FILE FORMAT********
 
-    #if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
-    #    dtype = np.uint16
-    #else:
-    #    dtype = np.uint8
-    #img = np.fromstring(image.shot.image.data, dtype=dtype)
-    #if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
-    #    img = img.reshape(image.shot.image.rows, image.shot.image.cols)
-    #else:
-    #    img = cv2.imdecode(img, -1)
-    #Show the image to the user and wait for them to click on a pixel
-    #robot.logger.info('Click on an object to start grasping...')
-    #image_title = 'Click to grasp'
-    #cv2.namedWindow(image_title)
-    #cv2.setMouseCallback(image_title, cv_mouse_callback)
-    #cv2.imshow(image_title, g_image_display)
-    #while g_image_click is None:
-    #    key = cv2.waitKey(1) & 0xFF
-    #    if key == ord('q') or key == ord('Q'):
-            # Quit
-    #        print('"q" pressed, exiting.')
-    #        exit(0)
-    #global g_image_click, g_image_display
-    #g_image_display = img
-    #robot.logger.info('Picking object at image location (' + str(x) + ', ' +str(y) + ')')
     pick_vec = geometry_pb2.Vec2(x=x_coor, y=y_coor)
+    print(pick_vec)
 
     # Build the proto
     grasp = manipulation_api_pb2.PickObjectInImage(
