@@ -76,7 +76,7 @@ class PackageDelivery(object):
         self._current_tag_world_pose = np.array([])
         self._angle_desired = None
 
-        self._tag_offset = .2 + BODY_LENGTH / 2.0  # meters
+        self._tag_offset = 0.3 + BODY_LENGTH / 2.0  # meters
 
         # Maximum speeds.
         self._max_x_vel = 0.5
@@ -355,7 +355,7 @@ class PackageDelivery(object):
         stow_command_id = command_client.robot_command(stow)
 
         self._robot.logger.info("Stow command issued.")
-        block_until_arm_arrives(command_client, stow_command_id, 3.0)
+        #block_until_arm_arrives(command_client, stow_command_id, 3.0)
     
     def find_dropoff(self):
         return
@@ -391,7 +391,7 @@ class PackageDelivery(object):
         if self.pickup_package(package_fiducial) is True:
             print("Completed arm grasp")
             self.stow_package()
-            #time.sleep(4.0)
+            time.sleep(4.0)
 
 
 
